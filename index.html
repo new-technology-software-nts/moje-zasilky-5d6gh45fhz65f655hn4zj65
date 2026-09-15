@@ -1,0 +1,1043 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Osobní evidence zásilek</title>
+    <style>
+        :root {
+            --primary-blue: #007bff;
+            --primary-hover: #0056b3;
+            --success-green: #28a745;
+            --danger-red: #dc3545;
+            --gray-light: #f8f9fa;
+            --gray-border: #dee2e6;
+            --text-dark: #343a40;
+            --text-muted: #6c757d;
+            --shadow: 0 4px 6px rgba(0,0,0,0.1);
+            --radius: 8px;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f0f2f5;
+            color: var(--text-dark);
+            margin: 0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            min-height: 90vh;
+            position: relative;
+        }
+
+        h1 { margin-bottom: 5px; font-size: 1.8rem; }
+        h2 { font-size: 1.4rem; margin-top: 20px; border-bottom: 2px solid var(--gray-border); padding-bottom: 10px; }
+        
+        .divider { height: 1px; background: var(--gray-border); margin: 15px 0; }
+        .server-status { font-size: 0.85rem; color: var(--text-muted); font-family: monospace; }
+
+        /* Buttons */
+        .btn {
+            border: none;
+            padding: 12px 20px;
+            border-radius: var(--radius);
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 600;
+            width: 100%;
+            display: block;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        .btn-blue { background: var(--primary-blue); color: white; }
+        .btn-blue:hover { background: var(--primary-hover); }
+        .btn-green { background: var(--success-green); color: white; }
+        .btn-red { background: var(--danger-red); color: white; }
+        .btn-gray { background: #6c757d; color: white; }
+        .btn-orange { background: #fd7e14; color: white; }
+        .btn-sm { padding: 8px 15px; font-size: 0.9rem; width: auto; display: inline-block; margin-right: 10px; }
+
+        /* Form Styles */
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: 500; }
+        input[type="text"], select, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--gray-border);
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 1rem;
+        }
+        textarea { resize: vertical; min-height: 80px; }
+
+        /* Views management */
+        .view { display: none; animation: fadeIn 0.3s ease-in-out; }
+        .view.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* Accordion List */
+        .shipment-item {
+            border: 1px solid var(--gray-border);
+            border-radius: var(--radius);
+            margin-bottom: 10px;
+            background: white;
+            overflow: hidden;
+        }
+        .shipment-header {
+            padding: 15px;
+            background: var(--gray-light);
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: bold;
+        }
+        .shipment-header:hover { background: #e2e6ea; }
+        .arrow { transition: transform 0.3s; }
+        .arrow.open { transform: rotate(180deg); }
+        
+        .shipment-details {
+            display: none;
+            padding: 15px;
+            border-top: 1px solid var(--gray-border);
+        }
+        .shipment-details.open { display: block; animation: slideDown 0.3s; }
+        @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .detail-row { margin-bottom: 8px; font-size: 0.95rem; }
+        .detail-label { font-weight: 600; color: var(--text-muted); display: block; font-size: 0.8rem;}
+
+        /* Status Checkboxes */
+        .status-container { margin-top: 15px; padding-top: 10px; border-top: 1px dashed var(--gray-border); }
+        .status-item { display: flex; align-items: center; margin-bottom: 5px; }
+        .status-item input { margin-right: 10px; width: 20px; height: 20px; }
+
+        /* Modal / Overlay */
+        .overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6);
+            display: none; justify-content: center; align-items: center;
+            z-index: 1000;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .overlay.active { display: flex; }
+        .modal-box {
+            background: white;
+            padding: 25px;
+            border-radius: var(--radius);
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            text-align: center;
+        }
+        .modal-title { font-size: 1.2rem; margin-bottom: 10px; font-weight: bold; }
+        .modal-text { margin-bottom: 20px; color: var(--text-muted); }
+        
+        .modal-btns { display: flex; gap: 10px; justify-content: space-between; margin-top: 20px;}
+        .modal-btns .btn { width: 48%; margin-bottom: 0; }
+
+        .highlight-blink {
+            animation: yellowBlink 1s;
+            border: 2px solid #ffc107;
+            padding: 5px;
+            border-radius: 4px;
+        }
+        @keyframes yellowBlink {
+            0% { background-color: white; }
+            50% { background-color: #fff3cd; }
+            100% { background-color: white; }
+        }
+
+        .archive-date { font-size: 0.8rem; color: var(--success-green); float: right; }
+
+        /* Custom Input in Modal */
+        #modal-input-container { margin-bottom: 15px; text-align: left;}
+        #modal-options-container { text-align: left; }
+        .radio-option { display: block; margin: 10px 0; cursor: pointer; }
+        .radio-option input { margin-right: 10px; }
+
+        .action-bar { margin-top: 20px; padding-top: 10px; border-top: 1px solid #eee; text-align: right; }
+
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div id="view-dashboard" class="view active">
+            <h1>Osobní evidence zásilek</h1>
+            <div class="divider"></div>
+            <div class="server-status">Připojeno k serveru: NTS/MOJE_ZASILKY</div>
+            <br>
+            <button class="btn btn-blue" onclick="app.openNewShipmentForm()">Založit novou zásilku</button>
+            <div class="divider"></div>
+            <h2>Přehled aktivních objednávek</h2>
+            <div id="active-shipments-list">
+                <p style="text-align: center; color: #999;">Načítání dat...</p>
+            </div>
+            
+            <div style="margin-top: 40px;">
+                <button class="btn btn-orange" onclick="app.openArchive()">Menu | Archiv</button>
+            </div>
+        </div>
+
+        <div id="view-form" class="view">
+            <h1 id="form-main-title">Zadání nové zásilky do přepravy</h1>
+            <p>Stačí vyplnit tato pole:</p>
+            <form id="new-shipment-form" onsubmit="event.preventDefault();">
+                
+                <div class="form-group">
+                    <label>Přepravce zásilky:</label>
+                    <select id="input-carrier">
+                        <option value="" disabled selected>Vyberte...</option>
+                        <option value="Zásilkovna">Zásilkovna</option>
+                        <option value="Balíkovna">Balíkovna</option>
+                        <option value="Česká pošta">Česká pošta</option>
+                        <option value="DPD">DPD</option>
+                        <option value="PPL">PPL</option>
+                        <option value="One by Allegro / WE|DO">One by Allegro / WE|DO</option>
+                        <option value="Jiné">Jiný</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Číslo zásilky:</label>
+                    <input type="text" id="input-tracking">
+                </div>
+
+                <div class="form-group">
+                    <label>Příjemce na zásilce:</label>
+                    <div id="recipient-selection">
+                        <label class="radio-option"><input type="radio" name="recipient" value="Adam Rudolfský" checked> Adam Rudolfský</label>
+                        <label class="radio-option"><input type="radio" name="recipient" value="Vladimír Tuček"> Vladimír Tuček</label>
+                        <label class="radio-option"><input type="radio" name="recipient" value="Stanislav Rusovský"> Stanislav Rusovský</label>
+                        <label class="radio-option"><input type="radio" name="recipient" value="Jiné"> Jiné</label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Telefonní číslo:</label>
+                    <div id="phone-selection">
+                        <label class="radio-option"><input type="radio" name="phone" value="739 124 428" checked> 739 124 428</label>
+                        <label class="radio-option"><input type="radio" name="phone" value="731 855 083"> 731 855 083</label>
+                        <label class="radio-option"><input type="radio" name="phone" value="720 116 015"> 720 116 015</label>
+                        <label class="radio-option"><input type="radio" name="phone" value="Jiné"> Jiné</label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Způsob doručení:</label>
+                    <div id="delivery-type-selection">
+                        <label class="radio-option"><input type="radio" name="deliveryType" value="Na adresu"> Na adresu</label>
+                        <label class="radio-option"><input type="radio" name="deliveryType" value="Na výdejní místo"> Na výdejní místo</label>
+                        <label class="radio-option"><input type="radio" name="deliveryType" value="Výdejní boxy, alzaboxy"> Výdejní boxy, alzaboxy</label>
+                    </div>
+                    <input type="text" id="input-delivery-target" readonly style="background: #e9ecef; margin-top:5px; display:none;" placeholder="Vybráno...">
+                </div>
+
+                <div class="form-group">
+                    <label>Odesílatel:</label>
+                    <input type="text" id="input-sender">
+                </div>
+
+                <div class="form-group">
+                    <label>Vlastní název zásilky (pro identifikaci):</label>
+                    <input type="text" id="input-custom-name">
+                </div>
+
+                <div class="form-group">
+                    <label>Poznámka (interní, volitelné):</label>
+                    <textarea id="input-note"></textarea>
+                </div>
+
+                <div class="modal-btns">
+                    <button class="btn btn-gray" onclick="app.tryCloseForm()">Zpět</button>
+                    <button id="btn-submit-form" class="btn btn-green" onclick="app.submitForm()">Potvrdit a uložit</button>
+                </div>
+            </form>
+        </div>
+
+<div id="view-archive" class="view">
+    <h1>Menu:</h1>
+            
+            <div style="display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 25px;">
+                <button class="btn btn-blue" style="margin: 0; padding: 0; border-radius: 4px; cursor: pointer; font-size: 1rem; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-family: sans-serif; font-weight: 600; border: none; height: 48px; width: 280px; background-color: #007bff; color: white;" onclick="app.showDashboard()">
+                    <span>⬅</span> Zpět na hlavní stránku
+                </button>
+
+                <button type="button" onclick="window.location.href='https://nts-windows-tools.github.io/hledani-v-zasilkach-wfdrujbgz/'" style="background-color: #28a745; color: white; margin: 0; padding: 0; border-radius: 4px; cursor: pointer; font-size: 1rem; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-family: sans-serif; font-weight: 600; border: none; height: 48px; width: 280px;">
+                    <span>🔍</span> Prohledávat všechny zásilky
+                </button>
+
+                <button type="button" onclick="window.open('https://nts-systems-ux.github.io/vydejni-mista-kuryri-mapy-pobocky-spolecnosti/', '_blank')" style="background-color: #fd7e14; color: white; margin: 0; padding: 0; border-radius: 4px; cursor: pointer; font-size: 1rem; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-family: sans-serif; font-weight: 600; border: none; height: 48px; width: 280px;">
+                    <span>📍</span> Najít výdejní místa
+                </button>
+
+                <button type="button" onclick="window.location.href='https://www.google.com'" style="background-color: #ffc107; color: #212529; margin: 0; padding: 0; border-radius: 4px; cursor: pointer; font-size: 1rem; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-family: sans-serif; font-weight: 600; border: none; height: 48px; width: 280px;">
+                    <span>🔗</span> Na někdy
+                </button>
+            </div>
+
+            <h1>Archivované zásilky (od 1.1.2026)</h1>
+
+            <div id="archived-shipments-list"></div>
+        </div>
+
+    <div id="modal-overlay" class="overlay">
+        <div class="modal-box">
+            <div id="modal-icon" style="font-size: 3rem; margin-bottom: 10px;"></div>
+            <h3 id="modal-title" class="modal-title">Nadpis</h3>
+            <p id="modal-text" class="modal-text">Text</p>
+            
+            <div id="modal-content-area"></div> <div class="modal-btns">
+                <button id="modal-btn-back" class="btn btn-gray">Zpět</button>
+                <button id="modal-btn-confirm" class="btn btn-green">Potvrdit</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getDatabase, ref, push, onValue, update, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDw5HkQQDZkgUqsjQ1QNiiPryK2alAUpV4",
+            authDomain: "moje-zasilky-8e824.firebaseapp.com",
+            databaseURL: "https://moje-zasilky-8e824-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "moje-zasilky-8e824",
+            storageBucket: "moje-zasilky-8e824.firebasestorage.app",
+            messagingSenderId: "303354078516",
+            appId: "1:303354078516:web:14658c92613f1dd7457161"
+        };
+
+        const appInstance = initializeApp(firebaseConfig);
+        const db = getDatabase(appInstance);
+
+        // --- DATA A KONFIGURACE ---
+        
+        const deliveryPointsData = {
+            "Balíkovna": ["Balíkovna DZ Oil Dub nad Moravou", "Balíkovna potraviny Charváty", "Balíkovna na poště Charváty", "Balíkovna na poště OC Šantovka", "Balíkovna na poště Vikýřovice"],
+            "Zásilkovna": ["Zásilkovna DZ Oil Dub nad Moravou", "Zásilkovna potraviny Klára - Olomouc náměstí", "Z-BOX Vikýřovice - Sokolská 260", "Nový Malín - Krako Welding"],
+            "PPL": ["MO - Potraviny Lenka Čertoryje /VAROVÁNÍ: VÝDEJNÍ MÍSTO NYNÍ ZAVŘENO, MIMO PROVOZ!!!!", "COOP HB 721 - Bolelouc 551", "PRODOM Brodecká 36"],
+            "Česká pošta": ["Pošta Charváty", "Pošta OC Šantovka", "Pošta Vikýřovice"],
+            "DPD": ["DZ Oil Dub nad Moravou", "PRODOM - Brodecká 36", "Česká Pošta - Olomouc OC Šantovka", "DPD Z-BOX Vikýřovice - Sokolská 260", "DPD Nový Malín - Krako Welding"],
+            "One by Allegro / WE|DO": ["OnePoint DZ Oil Dub nad Moravou", "OnePoint ATV Čtyřkolky Rapotín"],
+            "Alza": ["AlzaBox - Olomouc OC Galerie Šantovka", "AlzaBox - Šumperk u Kauflandu", "Prodejna Alza Olomouc", "AlzaBox - Rapotín - Potraviny CBA"],
+            "Datart": ["Prodejna Datart - Olomouc OC Galerie Šantovka", "Datart - Olomouc Horní Lán", "Datart - Šumperk"]
+        };
+
+        const addressesData = ["Čertoryje 227, 783 75", "Čertoryje 226, 783 75"];
+        const boxesData = ["AlzaBox - Olomouc OC Galerie Šantovka", "AlzaBox - Šumperk u Kauflandu", "AlzaBox - Rapotín - Potraviny CBA"];
+
+        // --- GLOBAL APP STATE ---
+        let isFormDirty = false;
+        let currentEditingId = null; // Pokud upravujeme, zde bude ID
+        let allShipmentsData = {}; // Cache dat pro editaci
+        window.openAccordions = new Set(); // Sledování otevřených ID
+
+        // --- UI MANIPULATION ---
+
+        window.app = {
+            openNewShipmentForm: () => {
+                currentEditingId = null; // Reset pro novou
+                document.getElementById('form-main-title').innerText = "Zadání nové zásilky do přepravy";
+                document.getElementById('btn-submit-form').innerText = "Potvrdit a uložit";
+                resetForm();
+                switchView('view-form');
+            },
+            showDashboard: () => {
+                switchView('view-dashboard');
+            },
+            openArchive: () => {
+                switchView('view-archive');
+            },
+            tryCloseForm: () => {
+                if (checkFormDirty()) {
+                    showModalWarning("Data z formuláře budou zahozena!", "Pokračováním dojde ke ztrátě dat, která byla nyní ve formuláři zadána! Pokračovat?", "Zahodit data a odejít", "Vrátit se do formuláře", 
+                    () => { // Confirm (Stay)
+                        closeModal();
+                    },
+                    () => { // Back (Discard)
+                        switchView('view-dashboard');
+                        closeModal();
+                    }, true); 
+                } else {
+                    switchView('view-dashboard');
+                }
+            },
+            submitForm: () => {
+                saveShipment();
+            },
+            editShipment: (key) => {
+                const data = allShipmentsData[key];
+                if (!data) return;
+
+                currentEditingId = key;
+                document.getElementById('form-main-title').innerText = "Úprava zásilky";
+                document.getElementById('btn-submit-form').innerText = "Uložit změny";
+                
+                resetForm(); // Vyčistí a připraví posluchače
+
+                // Naplnění dat
+                document.getElementById('input-tracking').value = data.tracking || "";
+                document.getElementById('input-sender').value = data.sender || "";
+                document.getElementById('input-custom-name').value = data.name || "";
+                document.getElementById('input-note').value = data.note || "";
+                
+                // Carrier
+                const carrierSelect = document.getElementById('input-carrier');
+                // Pokud je carrier custom a není v selectu, přidáme ho
+                let carrierExists = false;
+                for(let i=0; i<carrierSelect.options.length; i++){
+                    if(carrierSelect.options[i].value === data.carrier) carrierExists = true;
+                }
+                if(!carrierExists && data.carrier) {
+                     let opt = document.createElement('option');
+                     opt.value = data.carrier;
+                     opt.text = data.carrier;
+                     carrierSelect.add(opt);
+                }
+                carrierSelect.value = data.carrier;
+
+                // Recipient (Radio Logic)
+                const radiosR = document.querySelectorAll('input[name="recipient"]');
+                let foundR = false;
+                radiosR.forEach(r => {
+                    if(r.value === data.recipient) { r.checked = true; foundR = true; }
+                });
+                if(!foundR && data.recipient) {
+                    // Je to "Jiné", musíme nastavit input
+                    const parent = document.getElementById('recipient-selection');
+                    // Najdeme input jiné a přepíšeme label
+                    const otherRadio = parent.querySelector('input[value="Jiné"]');
+                    if(otherRadio) {
+                        otherRadio.parentElement.innerHTML = `<input type="radio" name="recipient" value="${data.recipient}" checked> ${data.recipient}`;
+                    } else {
+                         // Fallback, pokud už bylo přepsáno dříve
+                         parent.innerHTML += `<label class="radio-option"><input type="radio" name="recipient" value="${data.recipient}" checked> ${data.recipient}</label>`;
+                    }
+                    reattachRadioListeners();
+                }
+
+                // Phone (Radio Logic)
+                const radiosP = document.querySelectorAll('input[name="phone"]');
+                let foundP = false;
+                radiosP.forEach(r => {
+                    if(r.value === data.phone) { r.checked = true; foundP = true; }
+                });
+                if(!foundP && data.phone) {
+                    const parent = document.getElementById('phone-selection');
+                    const otherRadio = parent.querySelector('input[value="Jiné"]');
+                    if(otherRadio) {
+                         otherRadio.parentElement.innerHTML = `<input type="radio" name="phone" value="${data.phone}" checked> ${data.phone}`;
+                    } else {
+                         parent.innerHTML += `<label class="radio-option"><input type="radio" name="phone" value="${data.phone}" checked> ${data.phone}</label>`;
+                    }
+                    reattachRadioListeners();
+                }
+
+                // Delivery Type & Target
+                const radiosD = document.querySelectorAll('input[name="deliveryType"]');
+                radiosD.forEach(r => {
+                    if(r.value === data.deliveryType) r.checked = true;
+                });
+                if(data.deliveryTarget) {
+                    setDeliveryTarget(data.deliveryTarget);
+                }
+
+                switchView('view-form');
+            }
+        };
+
+        // --- LISTENERS FOR FORM INTERACTION ---
+
+        // Carrier Select
+        const carrierSelect = document.getElementById('input-carrier');
+        carrierSelect.addEventListener('change', (e) => {
+            isFormDirty = true;
+            if (e.target.value === "One by Allegro / WE|DO") {
+                // No modal
+            } else if (e.target.value === "Jiné") {
+                showCustomCarrierModal();
+            }
+            // Reset delivery target only if changing carrier types drastically, but let's keep logic simple
+            // User requested to keep logic.
+            document.querySelectorAll('input[name="deliveryType"]').forEach(el => el.checked = false);
+            document.getElementById('input-delivery-target').value = "";
+            document.getElementById('input-delivery-target').style.display = "none";
+        });
+
+        function attachRadioListeners() {
+            // Recipient
+            document.querySelectorAll('input[name="recipient"]').forEach(radio => {
+                radio.addEventListener('change', (e) => {
+                    isFormDirty = true;
+                    if (e.target.value === "Jiné") {
+                        showInputModal("Zadat jméno", "Jaké jméno je na balíku uvedeno?", "Jméno na balíku:", (val) => {
+                            e.target.parentElement.innerHTML = `<input type="radio" name="recipient" value="Jiné: ${val}" checked> Jiné: ${val}`;
+                            attachRadioListeners(); // reattach for new element if needed
+                        }, () => { e.target.checked = false; });
+                    }
+                });
+            });
+
+            // Phone
+            document.querySelectorAll('input[name="phone"]').forEach(radio => {
+                radio.addEventListener('change', (e) => {
+                    isFormDirty = true;
+                    if (e.target.value === "Jiné") {
+                        showInputModal("Zadat telefonní číslo", "Jaké telefonní číslo je na balíku uvedeno?", "Telefon na balíku:", (val) => {
+                            e.target.parentElement.innerHTML = `<input type="radio" name="phone" value="Jiné: ${val}" checked> Jiné: ${val}`;
+                            attachRadioListeners();
+                        }, () => { e.target.checked = false; });
+                    }
+                });
+            });
+        }
+        
+        function reattachRadioListeners() { attachRadioListeners(); }
+
+        // Delivery Type
+        document.querySelectorAll('input[name="deliveryType"]').forEach(radio => {
+            radio.addEventListener('click', (e) => { 
+                isFormDirty = true;
+                const carrier = carrierSelect.value;
+                const type = e.target.value;
+
+                if (type === "Na adresu") {
+                    showSelectionModal("Doručení na adresu:", "Na jakou adresu bude balík doručován?", addressesData, "Zadat jinou adresu:", (val) => {
+                         setDeliveryTarget(val);
+                    }, () => { e.target.checked = false; });
+                } else if (type === "Na výdejní místo") {
+                    let options = deliveryPointsData[carrier] || [];
+                    if (!deliveryPointsData[carrier]) {
+                        showInputModal("Doručení na výdejní místo", `Na jaké výdejní místo ${carrier} bude balík doručen?`, "Výdejní místo...", (val) => {
+                            setDeliveryTarget(val);
+                        }, () => { e.target.checked = false; });
+                    } else {
+                        showSelectionModal("Doručení na výdejní místo:", "Na jaké výdejní místo bude balík doručen?", options, `Na jaké výdejní místo ${carrier} bude balík doručen?`, (val) => {
+                            setDeliveryTarget(val);
+                        }, () => { e.target.checked = false; });
+                    }
+                } else if (type === "Výdejní boxy, alzaboxy") {
+                    showSelectionModal("Výdejní boxy a alzaboxy", "Do jakého výdejního boxy nebo alzaboxu bude zásilka doručena?", boxesData, "Boxy / AlzaBoxy", (val) => {
+                        setDeliveryTarget(val);
+                    }, () => { e.target.checked = false; });
+                }
+            });
+        });
+
+        ['input-tracking', 'input-sender', 'input-custom-name', 'input-note'].forEach(id => {
+            document.getElementById(id).addEventListener('input', () => isFormDirty = true);
+        });
+
+        // --- HELPER FUNCTIONS ---
+
+        function setDeliveryTarget(val) {
+            const el = document.getElementById('input-delivery-target');
+            el.value = val;
+            el.style.display = 'block';
+        }
+
+        function checkFormDirty() {
+            return isFormDirty;
+        }
+
+        function resetForm() {
+            document.getElementById('new-shipment-form').reset();
+            document.getElementById('input-delivery-target').style.display = "none";
+            document.getElementById('recipient-selection').innerHTML = `
+                <label class="radio-option"><input type="radio" name="recipient" value="Adam Rudolfský" checked> Adam Rudolfský</label>
+                <label class="radio-option"><input type="radio" name="recipient" value="Vladimír Tuček"> Vladimír Tuček</label>
+                <label class="radio-option"><input type="radio" name="recipient" value="Stanislav Rusovský"> Stanislav Rusovský</label>
+                <label class="radio-option"><input type="radio" name="recipient" value="Jiné"> Jiné</label>
+            `;
+            document.getElementById('phone-selection').innerHTML = `
+                <label class="radio-option"><input type="radio" name="phone" value="739 124 428" checked> 739 124 428</label>
+                <label class="radio-option"><input type="radio" name="phone" value="731 855 083"> 731 855 083</label>
+                <label class="radio-option"><input type="radio" name="phone" value="720 116 015"> 720 116 015</label>
+                <label class="radio-option"><input type="radio" name="phone" value="Jiné"> Jiné</label>
+            `;
+            refreshCarrierSelect();
+            attachRadioListeners();
+            isFormDirty = false;
+        }
+
+        function switchView(viewId) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.getElementById(viewId).classList.add('active');
+            window.scrollTo(0,0);
+        }
+
+        // --- MODAL LOGIC SYSTEM ---
+
+        const modalOverlay = document.getElementById('modal-overlay');
+        const modalTitle = document.getElementById('modal-title');
+        const modalText = document.getElementById('modal-text');
+        const modalContent = document.getElementById('modal-content-area');
+        const btnBack = document.getElementById('modal-btn-back');
+        const btnConfirm = document.getElementById('modal-btn-confirm');
+        const modalIcon = document.getElementById('modal-icon');
+
+        function closeModal() {
+            modalOverlay.classList.remove('active');
+            modalContent.innerHTML = '';
+            modalIcon.innerHTML = '';
+            modalContent.style.display = 'block';
+            btnConfirm.className = "btn btn-green"; 
+            btnBack.className = "btn btn-gray";
+            btnConfirm.style.display = 'inline-block';
+            btnBack.style.display = 'inline-block';
+        }
+
+        function showCustomCarrierModal() {
+            modalTitle.innerText = "Zadat jiného dopravce";
+            modalText.innerText = "";
+            modalIcon.innerHTML = "";
+            modalContent.innerHTML = `
+                <div class="form-group">
+                    <label>Zadat název kurýrní firmy:</label>
+                    <input type="text" id="modal-custom-input">
+                </div>
+                <div class="form-group" id="remember-container" style="border:1px solid transparent; transition:0.5s;">
+                    <label class="radio-option">
+                        <input type="checkbox" id="modal-remember-check"> Zapamatovat si tohohle dopravce pro příště
+                    </label>
+                </div>
+            `;
+            
+            btnBack.innerText = "Zpět";
+            btnConfirm.innerText = "Potvrdit";
+            btnConfirm.style.display = "block";
+            
+            modalOverlay.classList.add('active');
+
+            btnBack.onclick = () => {
+                carrierSelect.value = ""; 
+                closeModal();
+            };
+
+            btnConfirm.onclick = () => {
+                const val = document.getElementById('modal-custom-input').value;
+                const remember = document.getElementById('modal-remember-check').checked;
+
+                if (!val) return; 
+
+                if (remember) {
+                    modalTitle.innerText = "Potvrdit?";
+                    modalText.innerText = "Tento dopravce bude pro příště uložen do nabídky dopravců k výběru. Po potvrzení je akce nevratná!";
+                    modalIcon.innerHTML = "⚠️";
+                    modalContent.style.display = "none";
+                    
+                    btnBack.onclick = () => {
+                        modalTitle.innerText = "Zadat jiného dopravce";
+                        modalText.innerText = "";
+                        modalIcon.innerHTML = "";
+                        modalContent.style.display = "block";
+                        const container = document.getElementById('remember-container');
+                        container.classList.add('highlight-blink');
+                        document.getElementById('modal-remember-check').checked = false;
+                        
+                        btnBack.onclick = () => { carrierSelect.value = ""; closeModal(); };
+                    };
+                    
+                    btnConfirm.onclick = () => {
+                        push(ref(db, 'custom_carriers'), val);
+                        applyCustomCarrier(val);
+                        closeModal();
+                    }
+                } else {
+                    applyCustomCarrier(val);
+                    closeModal();
+                }
+            };
+        }
+
+        function applyCustomCarrier(name) {
+            let opt = document.createElement('option');
+            opt.value = name;
+            opt.text = name;
+            opt.selected = true;
+            carrierSelect.add(opt); 
+            carrierSelect.value = name;
+        }
+
+        function showInputModal(title, text, label, onConfirm, onCancel) {
+            modalTitle.innerText = title;
+            modalText.innerText = text;
+            modalIcon.innerHTML = "";
+            modalContent.style.display = "block";
+            modalContent.innerHTML = `
+                 <div class="form-group">
+                    <label>${label}</label>
+                    <input type="text" id="modal-simple-input">
+                </div>
+            `;
+            btnBack.innerText = "Zpět";
+            btnConfirm.innerText = "Potvrdit";
+            modalOverlay.classList.add('active');
+
+            btnBack.onclick = () => { onCancel(); closeModal(); };
+            btnConfirm.onclick = () => {
+                const val = document.getElementById('modal-simple-input').value;
+                if(val) onConfirm(val);
+                closeModal();
+            };
+        }
+
+        function showSelectionModal(title, text, options, otherLabel, onConfirm, onCancel) {
+            modalTitle.innerText = title;
+            modalText.innerText = text;
+            modalIcon.innerHTML = "";
+            modalContent.style.display = "block";
+            
+            let html = `<div id="modal-options-container">`;
+            options.forEach(opt => {
+                html += `<label class="radio-option"><input type="radio" name="modal-radio" value="${opt}"> ${opt}</label>`;
+            });
+            html += `<label class="radio-option"><input type="radio" name="modal-radio" value="__OTHER__"> Jiné</label>`;
+            html += `</div>`;
+            html += `<div id="modal-other-input-wrap" style="display:none; margin-top:10px;">
+                        <label>${otherLabel}</label>
+                        <input type="text" id="modal-other-input">
+                     </div>`;
+            
+            modalContent.innerHTML = html;
+            btnBack.innerText = "Zpět";
+            btnConfirm.innerText = "Potvrdit";
+            btnConfirm.style.display = "none"; 
+
+            modalOverlay.classList.add('active');
+
+            const radios = document.querySelectorAll('input[name="modal-radio"]');
+            const inputWrap = document.getElementById('modal-other-input-wrap');
+            const otherInput = document.getElementById('modal-other-input');
+
+            radios.forEach(r => {
+                r.addEventListener('change', (e) => {
+                    if(e.target.value === "__OTHER__") {
+                        inputWrap.style.display = 'block';
+                        btnConfirm.style.display = 'none'; 
+                    } else {
+                        inputWrap.style.display = 'none';
+                        btnConfirm.style.display = 'inline-block';
+                    }
+                });
+            });
+
+            otherInput.addEventListener('input', (e) => {
+                if(e.target.value.length > 3) btnConfirm.style.display = 'inline-block';
+                else btnConfirm.style.display = 'none';
+            });
+
+            btnBack.onclick = () => { onCancel(); closeModal(); };
+            btnConfirm.onclick = () => {
+                const selected = document.querySelector('input[name="modal-radio"]:checked');
+                if(selected.value === "__OTHER__") {
+                    onConfirm(otherInput.value);
+                } else {
+                    onConfirm(selected.value);
+                }
+                closeModal();
+            };
+        }
+
+        function showModalWarning(title, text, btnRedText, btnGreenText, onGreen, onRed, isDestructive = false) {
+            modalTitle.innerText = title;
+            modalText.innerText = text;
+            modalIcon.innerHTML = "⚠️";
+            modalContent.innerHTML = "";
+            modalContent.style.display = "block";
+            
+            btnBack.innerText = btnRedText;
+            btnConfirm.innerText = btnGreenText;
+            
+            btnBack.className = "btn btn-red";
+            btnConfirm.className = "btn btn-green";
+            btnBack.style.display = "inline-block";
+            btnConfirm.style.display = "inline-block";
+
+            modalOverlay.classList.add('active');
+            
+            btnConfirm.onclick = onGreen;
+            btnBack.onclick = onRed;
+        }
+
+        // --- DATABASE OPERATIONS ---
+
+        function refreshCarrierSelect() {
+            const select = document.getElementById('input-carrier');
+            const standards = `
+                        <option value="" disabled selected>Vybrat zde...</option>
+                        <option value="Zásilkovna">Zásilkovna</option>
+                        <option value="Balíkovna">Balíkovna</option>
+                        <option value="Česká pošta">Česká pošta</option>
+                        <option value="DPD">DPD</option>
+                        <option value="PPL">PPL</option>
+                        <option value="One by Allegro / WE|DO">One by Allegro / WE|DO</option>
+            `;
+            select.innerHTML = standards;
+            
+            onValue(ref(db, 'custom_carriers'), (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    Object.values(data).forEach(c => {
+                        let opt = document.createElement('option');
+                        opt.value = c;
+                        opt.text = c;
+                        select.appendChild(opt);
+                    });
+                }
+                let other = document.createElement('option');
+                other.value = "Jiné";
+                other.text = "Jiný";
+                select.appendChild(other);
+                
+                // Pokud editujeme a máme custom hodnotu, znovu ji nastavíme (pokud se přepsala)
+                if(currentEditingId && allShipmentsData[currentEditingId]) {
+                    const savedCarrier = allShipmentsData[currentEditingId].carrier;
+                     // Zkusíme nastavit
+                    select.value = savedCarrier;
+                    // Pokud to nešlo (hodnota tam není), přidáme ji
+                    if(select.value !== savedCarrier) {
+                        let opt = document.createElement('option');
+                        opt.value = savedCarrier;
+                        opt.text = savedCarrier;
+                        opt.selected = true;
+                        select.add(opt);
+                    }
+                }
+            });
+        }
+
+        function saveShipment() {
+            // Gather data
+            const data = {
+                carrier: document.getElementById('input-carrier').value,
+                tracking: document.getElementById('input-tracking').value,
+                recipient: document.querySelector('input[name="recipient"]:checked')?.value,
+                phone: document.querySelector('input[name="phone"]:checked')?.value,
+                deliveryType: document.querySelector('input[name="deliveryType"]:checked')?.value,
+                deliveryTarget: document.getElementById('input-delivery-target').value,
+                sender: document.getElementById('input-sender').value,
+                name: document.getElementById('input-custom-name').value || "Zásilka bez názvu",
+                note: document.getElementById('input-note').value,
+            };
+
+            if(!data.carrier || !data.tracking) {
+                alert("Je potřeba vyplnit alespoň dopravce a číslo zásilky.");
+                return;
+            }
+
+            if (currentEditingId) {
+                // UPDATE (zachová stavy a archivaci)
+                update(ref(db, 'shipments/' + currentEditingId), data).then(() => {
+                    isFormDirty = false;
+                    currentEditingId = null;
+                    switchView('view-dashboard');
+                });
+            } else {
+                // CREATE NEW
+                data.statusChecks = [false, false, false, false];
+                data.archived = false;
+                data.timestamp = Date.now();
+                
+                push(ref(db, 'shipments'), data).then(() => {
+                    isFormDirty = false;
+                    switchView('view-dashboard');
+                });
+            }
+        }
+
+        // --- RENDER LISTS ---
+
+        onValue(ref(db, 'shipments'), (snapshot) => {
+            allShipmentsData = snapshot.val() || {}; // Cache for editing
+            
+            const activeList = document.getElementById('active-shipments-list');
+            const archiveList = document.getElementById('archived-shipments-list');
+            activeList.innerHTML = "";
+            archiveList.innerHTML = "";
+
+            if (!allShipmentsData) {
+                activeList.innerHTML = "<p style='text-align:center'>Žádné zásilky.</p>";
+                return;
+            }
+
+            // PŘIPRAVENÍ POLÍ PRO TŘÍDĚNÍ
+            const entries = Object.entries(allShipmentsData);
+            const activeItems = [];
+            const archivedItems = [];
+
+            entries.forEach(([key, item]) => {
+                if (item.archived) {
+                    archivedItems.push({ key: key, data: item });
+                } else {
+                    activeItems.push({ key: key, data: item });
+                }
+            });
+
+            // TŘÍDĚNÍ ARCHIVU (datum formátu D.M.YYYY - sestupně, nejnovější nahoře)
+            archivedItems.sort((a, b) => {
+                const getDateVal = (dateStr) => {
+                    if (!dateStr) return 0;
+                    const parts = dateStr.split('.'); // Očekává formát D.M.YYYY
+                    if (parts.length < 3) return 0;
+                    // Měsíce v JS Date jsou 0-11, proto parts[1] - 1
+                    return new Date(parts[2], parts[1] - 1, parts[0]).getTime();
+                };
+                // Seřadíme od největšího (nejnovějšího) po nejmenší (nejstarší)
+                return getDateVal(b.data.archivedDate) - getDateVal(a.data.archivedDate);
+            });
+
+            // VYKRESLENÍ AKTIVNÍCH (původní řazení)
+            if (activeItems.length === 0) {
+                activeList.innerHTML = "<p style='text-align: center; color: #6c757d; font-weight: bold; margin: 20px 0;'>Žádné aktivní zásilky. Je na čase něco objednat?</p>";
+            } else {
+                activeItems.forEach(item => {
+                    activeList.appendChild(createShipmentElement(item.key, item.data, false));
+                });
+            }
+
+            // VYKRESLENÍ ARCHIVNÍCH (seřazené)
+            archivedItems.forEach(item => {
+                archiveList.appendChild(createShipmentElement(item.key, item.data, true));
+            });
+        });
+
+        function createShipmentElement(key, item, isArchived) {
+            const div = document.createElement('div');
+            div.className = "shipment-item";
+            
+            const archiveDateHtml = isArchived && item.archivedDate ? 
+                `<span class="archive-date">Doručeno: ${item.archivedDate}</span>` : '';
+
+            // Status Checkboxes HTML
+            let statusHtml = "";
+            if (!isArchived) {
+                const statuses = ["Čeká na expedici", "Expedováno, v přepravě", "Doručování", "Doručeno"];
+                statusHtml = `<div class="status-container"><label class="detail-label">Stav expedice:</label>`;
+                statuses.forEach((s, index) => {
+                    const checked = item.statusChecks && item.statusChecks[index] ? "checked" : "";
+                    statusHtml += `
+                        <div class="status-item">
+                            <input type="checkbox" ${checked} onchange="app.updateStatus('${key}', ${index}, this.checked, event)">
+                            <span>${s}</span>
+                        </div>
+                    `;
+                });
+                statusHtml += `</div>`;
+            }
+
+            // OPRAVA: Kontrola, zda má být otevřeno
+            const isOpen = window.openAccordions.has(key);
+            const openClass = isOpen ? "open" : "";
+
+            // LOGIKA PRO ODKAZY NA SLEDOVÁNÍ
+            let trackingHtml = item.tracking;
+            const trackingMap = {
+                "Zásilkovna": "https://tracking.packeta.com/cs/PLACEHOLDER",
+                "Balíkovna": "https://www.balikovna.cz/cs/sledovat-balik/-/balik/PLACEHOLDER",
+                "DPD": "https://www.dpdgroup.com/cz/mydpd/my-parcels/incoming?parcelNumber=PLACEHOLDER",
+                "PPL": "https://www.ppl.cz/vyhledat-zasilku?shipmentId=PLACEHOLDER",
+                "Česká pošta": "https://www.postaonline.cz/trackandtrace/-/zasilka/cislo?parcelNumbers=PLACEHOLDER",
+                "One by Allegro / WE|DO": "https://onedelivery.cz/sledovani-zasilky?numer=PLACEHOLDER",
+                "Alza": "https://alza.cz/my-account/order-details-PLACEHOLDER.htm"
+            };
+
+            if (trackingMap[item.carrier]) {
+                const url = trackingMap[item.carrier].replace("PLACEHOLDER", item.tracking);
+                trackingHtml = `<a href="${url}" target="_blank" style="color: var(--primary-blue); text-decoration: underline;">${item.tracking}</a>`;
+            }
+            // KONEC LOGIKY ODKAZŮ
+
+            div.innerHTML = `
+                <div class="shipment-header" onclick="app.toggleAccordion('${key}')">
+                    <span>${item.name}</span>
+                    <div>
+                        ${archiveDateHtml}
+                        <span class="arrow ${openClass}">▼</span>
+                    </div>
+                </div>
+                <div id="details-${key}" class="shipment-details ${openClass}">
+                    <div class="detail-row"><span class="detail-label">Dopravce:</span> ${item.carrier}</div>
+                    <div class="detail-row"><span class="detail-label">Číslo zásilky:</span> ${trackingHtml}</div>
+                    <div class="detail-row"><span class="detail-label">Příjemce:</span> ${item.recipient}</div>
+                    <div class="detail-row"><span class="detail-label">Telefon:</span> ${item.phone}</div>
+                    <div class="detail-row"><span class="detail-label">Doručení:</span> ${item.deliveryType} (${item.deliveryTarget})</div>
+                    <div class="detail-row"><span class="detail-label">Odesílatel:</span> ${item.sender}</div>
+                    <div class="detail-row"><span class="detail-label">Poznámka:</span> ${item.note}</div>
+                    ${statusHtml}
+                    ${!isArchived ? `
+                    <div class="action-bar">
+                         <button class="btn btn-gray btn-sm" onclick="app.editShipment('${key}')">Upravit</button>
+                    </div>` : ''}
+                </div>
+            `;
+            return div;
+        }
+
+        window.app.toggleAccordion = (key) => {
+            // Pouze aktualizujeme Set a překreslíme třídy lokálně (není nutné volat DB)
+            const details = document.getElementById(`details-${key}`);
+            const arrow = details.previousElementSibling.querySelector('.arrow');
+            
+            if (window.openAccordions.has(key)) {
+                window.openAccordions.delete(key);
+                details.classList.remove('open');
+                arrow.classList.remove('open');
+            } else {
+                window.openAccordions.add(key);
+                details.classList.add('open');
+                arrow.classList.add('open');
+            }
+        };
+
+        window.app.updateStatus = (key, index, isChecked, event) => {
+            // Zabráníme probublání kliknutí nahoru (aby se nezavřel/neotevřel accordion)
+            if(event) event.stopPropagation();
+
+            if (index === 3 && isChecked) {
+                showModalWarning("Archivovat zásilku?", "", "Zpět", "Archivovat", 
+                    () => { 
+                         const today = new Date();
+                         const dateStr = `${today.getDate()}.${today.getMonth()+1}.${today.getFullYear()}`;
+                         
+                         const newChecks = [true, true, true, true];
+                         update(ref(db, 'shipments/'+key), {
+                             statusChecks: newChecks,
+                             archived: true,
+                             archivedDate: dateStr
+                         });
+                         closeModal();
+                    },
+                    () => { 
+                        set(ref(db, 'shipments/'+key + '/statusChecks/' + index), false);
+                        closeModal();
+                    }
+                );
+                document.getElementById('modal-icon').innerHTML = "<span style='color:blue; border: 2px solid blue; border-radius:50%; width:40px; height:40px; display:inline-block; line-height:40px;'>?</span>";
+                btnConfirm.className = "btn btn-blue";
+                btnBack.className = "btn btn-gray";
+
+            } else {
+                 set(ref(db, 'shipments/'+key + '/statusChecks/' + index), isChecked);
+            }
+        };
+
+        refreshCarrierSelect();
+        attachRadioListeners(); // Init listeners for initial load
+
+    </script>
+</body>
+</html>
+
